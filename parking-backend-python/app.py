@@ -1,10 +1,11 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import pandas as pd
 import os
 import json
-from agent import run_react_agent
+from agent import run_react_agent_stream
 
 app = FastAPI()
 
@@ -30,11 +31,15 @@ for index, row in df.head(50).iterrows():
         "published": str(row['published']),
         "acreage": str(row['acreage']) + " m2",
         "address": str(row['address']),
-        "image": "https://images.unsplash.com/photo-1596276020587-804acffc87da?w=500&auto=format&fit=crop&q=60"
+        "image": ["https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500&auto=format&fit=crop&q=60", 
+                  "https://images.unsplash.com/photo-1502672260266-1c1c2c441539?w=500&auto=format&fit=crop&q=60",
+                  "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=500&auto=format&fit=crop&q=60",
+                  "https://plus.unsplash.com/premium_photo-1661962841993-99a07c27bf88?w=500&auto=format&fit=crop&q=60"][index % 4]
     })
 
 class ChatRequest(BaseModel):
     query: str
+    history: list = []  # Multi-turn conversation history
 
 class BookRequest(BaseModel):
     spotId: str
@@ -42,7 +47,24 @@ class BookRequest(BaseModel):
     phone: str
     time: str
 
-booking_history = []
+booking_history = [
+    {
+        "id": "mock-1",
+        "spot": parking_data[0] if len(parking_data) > 0 else None,
+        "name": "Nguyễn Văn A",
+        "phone": "0912345678",
+        "time": "2023-11-20T14:00",
+        "status": "Thành công"
+    },
+    {
+        "id": "mock-2",
+        "spot": parking_data[1] if len(parking_data) > 1 else None,
+        "name": "Trần Thị B",
+        "phone": "0987654321",
+        "time": "2026-08-15T09:00",
+        "status": "Chờ xác nhận"
+    }
+]
 
 @app.get("/api/parkings")
 def get_parkings():
@@ -50,9 +72,8 @@ def get_parkings():
 
 @app.post("/api/chat")
 def chat(request: ChatRequest):
-    # Run the ReAct agent
-    result = run_react_agent(request.query)
-    return result
+    # Run the ReAct agent with streaming and conversation history
+    return StreamingResponse(run_react_agent_stream(request.query, request.history), media_type="text/event-stream")
 
 @app.post("/api/book")
 def book(request: BookRequest):
