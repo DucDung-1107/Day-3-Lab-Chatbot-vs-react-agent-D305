@@ -16,6 +16,17 @@ const BookingFormPopup: React.FC<BookingFormPopupProps> = ({ spot, onClose, onSu
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!/^\d{10}$/.test(phone)) {
+      alert('Số điện thoại phải có đúng 10 chữ số!');
+      return;
+    }
+    
+    const selectedDate = new Date(time);
+    if (selectedDate <= new Date()) {
+      alert('Thời gian đặt lịch phải ở trong tương lai!');
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
