@@ -1,4 +1,4 @@
-Danh sách thành viên - D305 sáng
+Danh sách thành viên - lớp D305 sáng
 
 1. Nguyễn Đức Dũng - 2A202601823
 2. Đặng Đức Hòa - 2A202601351
