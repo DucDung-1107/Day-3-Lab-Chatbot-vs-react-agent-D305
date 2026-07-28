@@ -1,0 +1,31 @@
+.parking-list {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: 24px;
+  padding: 24px 0;
+}
+
+@media (min-width: 600px) {
+  .parking-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 900px) {
+  .parking-list {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1200px) {
+  .parking-list {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.parking-list-empty {
+  text-align: center;
+  padding: 48px;
+  font-size: 18px;
+  color: var(--text-secondary);
+}
