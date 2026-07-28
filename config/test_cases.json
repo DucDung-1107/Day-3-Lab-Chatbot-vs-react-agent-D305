@@ -20,19 +20,19 @@
   {
     "id": 4,
     "category": "🟡 Multi-step (Cần gọi Tool tìm kiếm)",
-    "question": "Tôi muốn tìm phòng trọ khu vực Cầu Giấy, giá dưới 5 triệu đồng/tháng và có ban công.",
-    "expected_behavior": "Agent gọi tool search_rentals với tham số location='Cầu Giấy', price_max=5000000, và lọc theo tiện ích 'ban công' (hoặc truyền ban công vào từ khóa lọc) để đưa ra danh sách các phòng trọ phù hợp kèm mã ID."
+    "question": "Tôi muốn tìm phòng trọ khu vực Hải Châu, giá dưới 5 triệu đồng/tháng và có ban công.",
+    "expected_behavior": "Agent gọi tool search_rentals với tham số location='Hải Châu', price_max=5000000, và lọc theo tiện ích 'ban công' (hoặc truyền ban công vào từ khóa lọc) để đưa ra danh sách các phòng trọ phù hợp kèm mã ID."
   },
   {
     "id": 5,
     "category": "🟡 Multi-step (Cần gọi Tool tìm kiếm & đặt lịch)",
-    "question": "Tìm phòng trọ ở Quận Đống Đa tầm giá 4-6 triệu. Nếu có phòng nào có máy giặt riêng, hãy đặt lịch xem phòng đó cho tôi (tên Nguyễn Văn A, SĐT 0987654321) vào chiều mai lúc 14:00.",
-    "expected_behavior": "Agent thực hiện chuỗi hành động:\n1. Gọi tool search_rentals để tìm phòng trọ tại Đống Đa trong tầm giá.\n2. Lọc ra phòng có máy giặt riêng và lấy mã phòng (ví dụ ID: R102).\n3. Gọi tool book_viewing với rental_id='R102', user_name='Nguyễn Văn A', user_phone='0987654321', date='[Ngày mai]', time='14:00' để hoàn thành lịch hẹn xem phòng."
+    "question": "Tìm phòng trọ ở Quận Thanh Khê tầm giá 4-6 triệu. Nếu có phòng nào có máy giặt riêng, hãy đặt lịch xem phòng đó cho tôi (tên Nguyễn Văn A, SĐT 0987654321) vào chiều mai lúc 14:00.",
+    "expected_behavior": "Agent thực hiện chuỗi hành động:\n1. Gọi tool search_rentals để tìm phòng trọ tại Thanh Khê trong tầm giá.\n2. Lọc ra phòng có máy giặt riêng và lấy mã phòng (ví dụ ID: R102).\n3. Gọi tool book_viewing với rental_id='R102', user_name='Nguyễn Văn A', user_phone='0987654321', date='[Ngày mai]', time='14:00' để hoàn thành lịch hẹn xem phòng."
   },
   {
     "id": 6,
     "category": "🟡 Multi-step (Cần gọi Tool kiểm tra & đặt lịch)",
-    "question": "Tôi muốn xem lại phòng trọ mã số R305 ở Quận Bình Thạnh có giá thuê bao nhiêu và đặt lịch đi xem vào Chủ Nhật tuần này lúc 9h sáng nhé. Tôi tên Trần Thị B, số điện thoại 0912345678.",
+    "question": "Tôi muốn xem lại phòng trọ mã số R305 ở Quận Cẩm Lệ có giá thuê bao nhiêu và đặt lịch đi xem vào Chủ Nhật tuần này lúc 9h sáng nhé. Tôi tên Trần Thị B, số điện thoại 0912345678.",
     "expected_behavior": "Agent gọi tool get_rental_detail(rental_id='R305') hoặc search_rentals để kiểm tra thông tin giá phòng trọ R305, báo giá cho người dùng, sau đó gọi tool book_viewing(rental_id='R305', date='Chủ Nhật tuần này', time='09:00', user_name='Trần Thị B', user_phone='0912345678') để tạo lịch hẹn."
   },
   {
