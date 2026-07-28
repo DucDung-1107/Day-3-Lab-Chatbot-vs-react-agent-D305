@@ -201,6 +201,7 @@
   font-size: 0.97rem;
   line-height: 1.6;
   word-break: break-word;
+  white-space: pre-wrap;
 }
 
 .cb-bubble-user {
@@ -231,30 +232,68 @@
   50%       { opacity: 1; }
 }
 
-/* ── Inline cards ── */
+/* ── Inline cards (mini, single scrollable row) ── */
 .cb-cards {
   display: flex;
+  flex-direction: row;
   flex-wrap: nowrap;
-  gap: 10px;
+  gap: 8px;
   overflow-x: auto;
-  padding-bottom: 4px;
+  padding: 6px 0 6px;
   max-width: 100%;
+  scrollbar-width: thin;
 }
 
 .cb-cards::-webkit-scrollbar { height: 4px; }
-.cb-cards::-webkit-scrollbar-thumb { background: #e0e0e0; border-radius: 4px; }
+.cb-cards::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
 
 .cb-card-wrap {
-  width: 180px;
+  width: 160px;
+  min-width: 160px;
   flex-shrink: 0;
   cursor: pointer;
-  transition: transform 0.2s;
-  border-radius: 12px;
+  transition: transform 0.18s;
+  border-radius: 10px;
   overflow: hidden;
+  font-size: 0.8rem;
 }
 
+/* scale down card internals */
+.cb-card-wrap .parking-card {
+  font-size: 0.8rem;
+}
+
+.cb-card-wrap .parking-card-image-wrapper {
+  height: 90px;
+}
+
+.cb-card-wrap .parking-card-image {
+  height: 90px;
+  object-fit: cover;
+  width: 100%;
+}
+
+.cb-card-wrap .parking-card-info {
+  padding: 6px 8px;
+}
+
+.cb-card-wrap .parking-card-title {
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cb-card-wrap .parking-card-address,
+.cb-card-wrap .parking-card-details {
+  font-size: 0.72rem;
+}
+
+.cb-card-wrap .parking-card-price { font-size: 0.8rem; }
+
 .cb-card-wrap:hover {
-  transform: translateY(-3px);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.1);
 }
 
 /* ═══════════════════════════════════════════

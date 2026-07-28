@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ParkingCard from './ParkingCard';
 import type { ParkingSpot } from './ParkingCard';
 import './Chatbot.css';
@@ -35,7 +35,7 @@ interface ChatbotProps {
 
 const Chatbot: React.FC<ChatbotProps> = ({ onResults, onSelectSpot }) => {
   const [threads, setThreads] = useState<Thread[]>([
-    { id: '1', title: 'Tìm phòng trọ Đà Nẵng', messages: [], history: [] }
+    { id: '1', title: 'Tim phong tro Da Nang', messages: [], history: [] }
   ]);
   const [activeThreadId, setActiveThreadId] = useState<string>('1');
   const [query, setQuery] = useState('');
@@ -46,15 +46,22 @@ const Chatbot: React.FC<ChatbotProps> = ({ onResults, onSelectSpot }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const activeThread = threads.find(t => t.id === activeThreadId) || threads[0];
+  // Use refs to avoid stale closures in async stream handler
+  const activeThreadIdRef = useRef(activeThreadId);
+  useEffect(() => { activeThreadIdRef.current = activeThreadId; }, [activeThreadId]);
 
-  const updateThread = (updater: (t: Thread) => Thread) => {
-    setThreads(prev => prev.map(t => t.id === activeThreadId ? updater(t) : t));
-  };
+  const activeThread = threads.find(t => t.id === activeThreadId) || threads[0];
+  // Capture history in a ref so async handler has fresh value
+  const historyRef = useRef(activeThread.history);
+  useEffect(() => { historyRef.current = activeThread.history; }, [activeThread.history]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [activeThread.messages]);
 
   const createNewThread = () => {
     const newId = Date.now().toString();
-    setThreads(prev => [{ id: newId, title: 'Đoạn chat mới', messages: [], history: [] }, ...prev]);
+    setThreads(prev => [{ id: newId, title: 'Doan chat moi', messages: [], history: [] }, ...prev]);
     setActiveThreadId(newId);
     setPendingBooking(null);
     setTimeout(() => inputRef.current?.focus(), 100);
@@ -67,45 +74,80 @@ const Chatbot: React.FC<ChatbotProps> = ({ onResults, onSelectSpot }) => {
     'Phong tro co dieu hoa',
   ];
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [activeThread.messages]);
-
-  const handleSearch = async (text: string) => {
+  const handleSearch = useCallback(async (text: string) => {
     if (!text.trim() || isThinking) return;
 
-    if (activeThread.messages.length === 0) {
-      const truncated = text.replace(/[🏘️💰📅❄️]/g, '').trim().substring(0, 24);
-      updateThread(t => ({ ...t, title: truncated + (truncated.length >= 24 ? '…' : '') }));
-    }
+    const tid = activeThreadIdRef.current;
+    const currentHistory = historyRef.current;
 
-    const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: 'user', text };
-    const thoughtId = `t-${Date.now()}`;
+    // Set thread title on first message
+    setThreads(prev => prev.map(t =>
+      t.id === tid && t.messages.length === 0
+        ? { ...t, title: text.substring(0, 22) }
+        : t
+    ));
 
-    updateThread(t => ({
-      ...t,
-      messages: [...t.messages, userMsg, { id: thoughtId, role: 'agent', text: '💭 Đang phân tích yêu cầu…', isThought: true }],
-    }));
+    const userMsgId = `u-${Date.now()}`;
+    const thoughtId  = `th-${Date.now()}`;
+
+    setThreads(prev => prev.map(t =>
+      t.id === tid
+        ? { ...t, messages: [...t.messages,
+            { id: userMsgId, role: 'user', text },
+            { id: thoughtId, role: 'agent', text: 'Dang suy nghi...', isThought: true }
+          ]}
+        : t
+    ));
+
     setQuery('');
     setIsThinking(true);
+
+    // Helper: update only the thought bubble (uses ref-captured tid & thoughtId)
+    const updateThought = (newText: string) => {
+      setThreads(prev => prev.map(t => {
+        if (t.id !== tid) return t;
+        return { ...t, messages: t.messages.map(m =>
+          m.id === thoughtId ? { ...m, text: m.text === 'Dang suy nghi...' ? newText : m.text + '\n' + newText } : m
+        )};
+      }));
+    };
+
+    const resolveThought = (finalText: string, results: ParkingSpot[]) => {
+      setThreads(prev => prev.map(t => {
+        if (t.id !== tid) return t;
+        return {
+          ...t,
+          messages: t.messages.map(m =>
+            m.id === thoughtId
+              ? { ...m, text: finalText, isThought: false, results }
+              : m
+          ),
+          history: [...t.history,
+            { role: 'user', content: text },
+            { role: 'assistant', content: finalText }
+          ]
+        };
+      }));
+    };
 
     try {
       const res = await fetch('http://localhost:3001/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: text, history: activeThread.history }),
+        body: JSON.stringify({ query: text, history: currentHistory }),
       });
 
       if (!res.body) throw new Error('No body');
 
-      const reader = res.body.getReader();
+      const reader  = res.body.getReader();
       const decoder = new TextDecoder('utf-8');
       let buffer = '';
-      let done = false;
+      let done   = false;
+      let gotResult = false;
 
       while (!done) {
-        const { value, done: readerDone } = await reader.read();
-        done = readerDone;
+        const { value, done: rd } = await reader.read();
+        done = rd;
         if (value) {
           buffer += decoder.decode(value, { stream: true });
           const chunks = buffer.split('\n\n');
@@ -113,42 +155,40 @@ const Chatbot: React.FC<ChatbotProps> = ({ onResults, onSelectSpot }) => {
 
           for (const chunk of chunks) {
             if (!chunk.startsWith('data: ')) continue;
-            try {
-              const data = JSON.parse(chunk.slice(6));
-              if (data.type === 'thought') {
-                setThreads(prev => prev.map(t => {
-                  if (t.id !== activeThreadId) return t;
-                  return { ...t, messages: t.messages.map(m => m.id === thoughtId ? { ...m, text: `💭 ${data.content}` } : m) };
-                }));
-              } else if (data.type === 'result') {
-                setThreads(prev => prev.map(t => {
-                  if (t.id !== activeThreadId) return t;
-                  return {
-                    ...t,
-                    messages: t.messages.map(m => m.id === thoughtId
-                      ? { ...m, text: data.message, isThought: false, results: data.results || [] }
-                      : m),
-                    history: [...t.history, { role: 'user', content: text }, { role: 'assistant', content: data.message }],
-                  };
-                }));
-                if (data.booking_ready && data.booking_data) {
-                  setPendingBooking(data.booking_data);
-                }
+            let data: any;
+            try { data = JSON.parse(chunk.slice(6)); } catch { continue; }
+
+            if (data.type === 'thought') {
+              updateThought(`[${data.content}]`);
+            } else if (data.type === 'result') {
+              gotResult = true;
+              const results: ParkingSpot[] = data.results || [];
+              resolveThought(data.message, results);
+
+              // Trigger top-3 popup if there are results
+              if (results.length > 0) {
+                onResults(results);
               }
-            } catch (_) {}
+
+              if (data.booking_ready && data.booking_data) {
+                setPendingBooking(data.booking_data);
+              }
+            }
           }
         }
       }
-    } catch {
-      setThreads(prev => prev.map(t => {
-        if (t.id !== activeThreadId) return t;
-        return { ...t, messages: t.messages.map(m => m.id === thoughtId ? { ...m, text: 'Loi ket noi. Vui long thu lai.', isThought: false } : m) };
-      }));
+
+      if (!gotResult) {
+        resolveThought('Khong nhan duoc ket qua. Vui long thu lai.', []);
+      }
+    } catch (e) {
+      console.error(e);
+      resolveThought('Loi ket noi den Agent. Vui long thu lai.', []);
     } finally {
       setIsThinking(false);
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  };
+  }, [isThinking, onResults]);
 
   const handleConfirmBooking = async () => {
     if (!pendingBooking) return;
@@ -157,20 +197,28 @@ const Chatbot: React.FC<ChatbotProps> = ({ onResults, onSelectSpot }) => {
       const res = await fetch('http://localhost:3001/api/book', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ spotId: pendingBooking.apartment_id, name: pendingBooking.name, phone: pendingBooking.phone, time: pendingBooking.time }),
+        body: JSON.stringify({
+          spotId: pendingBooking.apartment_id,
+          name: pendingBooking.name,
+          phone: pendingBooking.phone,
+          time: pendingBooking.time,
+        }),
       });
       const data = await res.json();
       if (data.success) {
-        const confirmMsg: ChatMessage = {
-          id: `c-${Date.now()}`,
-          role: 'agent',
-          text: `Dat lich thanh cong! Lich hen xem phong "${pendingBooking.title}" vao ${pendingBooking.time} da duoc ghi nhan. Chu tro se lien he qua SDT ${pendingBooking.phone}.`,
-        };
-        updateThread(t => ({ ...t, messages: [...t.messages, confirmMsg] }));
+        const tid = activeThreadIdRef.current;
+        setThreads(prev => prev.map(t =>
+          t.id === tid
+            ? { ...t, messages: [...t.messages, {
+                id: `c-${Date.now()}`, role: 'agent' as const,
+                text: `Dat lich thanh cong! Lich hen xem phong "${pendingBooking.title}" vao ${pendingBooking.time}. Chu tro se lien he qua SDT ${pendingBooking.phone}.`
+              }]}
+            : t
+        ));
         setPendingBooking(null);
       }
     } catch {
-      alert('Lỗi khi đặt lịch, vui lòng thử lại.');
+      alert('Loi khi dat lich, vui long thu lai.');
     } finally {
       setIsBooking(false);
     }
@@ -181,7 +229,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ onResults, onSelectSpot }) => {
   return (
     <div className={`cb-layout ${isInChatMode ? 'cb-chat-mode' : ''}`}>
 
-      {/* ── Sidebar ── */}
+      {/* Sidebar */}
       <aside className="cb-sidebar">
         <div className="cb-sidebar-header">
           <span className="cb-brand">RoomAI</span>
@@ -200,7 +248,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ onResults, onSelectSpot }) => {
         </nav>
       </aside>
 
-      {/* ── Main panel ── */}
+      {/* Main */}
       <div className="cb-main">
 
         {/* Empty state */}
@@ -221,6 +269,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ onResults, onSelectSpot }) => {
                   <div className={`cb-bubble cb-bubble-${msg.role} ${msg.isThought ? 'cb-thought' : ''}`}>
                     {msg.text}
                   </div>
+                  {/* Inline mini cards only - popup handled by onResults */}
                   {!msg.isThought && msg.results && msg.results.length > 0 && (
                     <div className="cb-cards">
                       {msg.results.map(spot => (
@@ -260,14 +309,14 @@ const Chatbot: React.FC<ChatbotProps> = ({ onResults, onSelectSpot }) => {
             ref={inputRef}
             className="cb-input"
             type="text"
-            placeholder="Hỏi về phòng trọ, giá cả, lịch xem nhà…"
+            placeholder="Hoi ve phong tro, gia ca, lich xem nha..."
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch(query)}
             disabled={isThinking}
           />
           <button className="cb-send-btn" onClick={() => handleSearch(query)} disabled={isThinking || !query.trim()}>
-            {isThinking ? <span className="cb-dots">···</span> : <span>&#9658;</span>}
+            {isThinking ? <span className="cb-dots">...</span> : <span>&#9658;</span>}
           </button>
         </div>
 
