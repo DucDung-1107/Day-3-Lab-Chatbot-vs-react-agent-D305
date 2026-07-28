@@ -1,0 +1,41 @@
+flowchart TD
+    %% Thiết lập style cho các nhóm node
+    classDef startEnd fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef decision fill:#ff9,stroke:#333,stroke-width:2px;
+    classDef processChatbot fill:#b3e5fc,stroke:#0288d1,stroke-width:1px;
+    classDef processAgent fill:#c8e6c9,stroke:#388e3c,stroke-width:1px;
+    classDef errorStyle fill:#ffcdd2,stroke:#d32f2f,stroke-width:1px;
+
+    Start([Nhận yêu cầu từ người dùng]):::startEnd --> Clarify{Phân loại câu hỏi}:::decision
+    
+    %% Đường đi của Chatbot Baseline
+    Clarify -- "Chào hỏi, hỏi thông tin tĩnh, hỏi FAQ chung" --> ChatbotPath[Đường dẫn Chatbot Baseline]:::processChatbot
+    ChatbotPath --> SystemPromptChatbot[Áp dụng CHATBOT_BASELINE_PROMPT]:::processChatbot
+    SystemPromptChatbot --> CallLLMChatbot[Gọi LLM sinh câu trả lời trực tiếp]:::processChatbot
+    CallLLMChatbot --> ReturnChatbot([Trả lời cho người dùng]):::startEnd
+    
+    %% Đường đi của ReAct Agent
+    Clarify -- "Tra cứu phòng trống, đặt lịch hẹn xem phòng" --> AgentPath[Đường dẫn ReAct Agent]:::processAgent
+    AgentPath --> InitReAct[Áp dụng REACT_SYSTEM_PROMPT & Khai báo Tools]:::processAgent
+    
+    InitReAct --> ReActLoop{Vòng lặp ReAct: Step < MAX_ITERATIONS?}:::decision
+    
+    %% Các bước trong vòng lặp ReAct
+    ReActLoop -- "Đúng" --> GenThoughtAction[LLM sinh Thought & Action]:::processAgent
+    GenThoughtAction --> Parser{Phân tích Output thô}:::decision
+    
+    Parser -- "Có Action (Gọi Tool)" --> CheckWhitelist{Tên tool hợp lệ?}:::decision
+    CheckWhitelist -- "Hợp lệ" --> ExecTool[Thực thi hàm Python: search_rentals / book_viewing]:::processAgent
+    CheckWhitelist -- "Lỗi (Không có trong whitelist)" --> LogErrorWhitelist[Trả về thông tin LỖI cho LLM]:::errorStyle
+    
+    ExecTool --> GetObs[Nhận kết quả Observation]:::processAgent
+    LogErrorWhitelist --> GetObs
+    
+    GetObs --> UpdateContext[Thêm Observation vào Prompt làm ngữ cảnh]:::processAgent
+    UpdateContext --> ReActLoop
+    
+    Parser -- "Có Final Answer" --> ReturnAgent([Trả lời kết quả cuối cùng kèm mã Booking]):::startEnd
+    
+    %% Trường hợp chạm phanh an toàn
+    ReActLoop -- "Sai (Chạm giới hạn)" --> GuardrailTrigger[Kích hoạt Safe Fallback Guardrail]:::errorStyle
+    GuardrailTrigger --> ReturnFallback([Trả lời câu thông báo fallback an toàn]):::startEnd
