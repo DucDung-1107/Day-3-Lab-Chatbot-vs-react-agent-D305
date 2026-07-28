@@ -1,5 +1,6 @@
-#Danh sach thanh vien - D305 sáng
-1. Nguyen Duc Dung - 2A202601823
-2. Dang Duc Hoa - 2A202601351
-3. Nguyen Hai Quan - 2A202601863
-4. Lang Thi Phuong Hue - 2A202601915
+Danh sách thành viên - D305 sáng
+
+1. Nguyễn Đức Dũng - 2A202601823
+2. Đặng Đức Hòa - 2A202601351
+3. Nguyễn Hải Quân - 2A202601863
+4. Lăng Thị Phương Huế - 2A202601915
